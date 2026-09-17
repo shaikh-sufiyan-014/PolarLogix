@@ -1,0 +1,72 @@
+[
+  {
+    "id": "LEG-GOA-CPT-SHIP",
+    "origin_id": "LOC-GOA",
+    "destination_id": "LOC-CPT",
+    "mode": "ship",
+    "average_speed_knots": 15.0,
+    "capacity_kg": 50000.0,
+    "hazmat_allowed": true,
+    "available_months": [11, 12, 1, 2, 3]
+  },
+  {
+    "id": "LEG-CPT-BHA-SHIP",
+    "origin_id": "LOC-CPT",
+    "destination_id": "LOC-BHA",
+    "mode": "ship",
+    "average_speed_knots": 14.0,
+    "capacity_kg": 45000.0,
+    "hazmat_allowed": true,
+    "available_months": [11, 12, 1, 2, 3]
+  },
+  {
+    "id": "LEG-CPT-BHA-AIR",
+    "origin_id": "LOC-CPT",
+    "destination_id": "LOC-BHA",
+    "mode": "aircraft",
+    "duration_days": 3,
+    "capacity_kg": 1800.0,
+    "hazmat_allowed": false,
+    "available_months": [11, 12, 1, 2]
+  },
+  {
+    "id": "LEG-CPT-MAI-SHIP",
+    "origin_id": "LOC-CPT",
+    "destination_id": "LOC-MAI",
+    "mode": "ship",
+    "average_speed_knots": 14.0,
+    "capacity_kg": 40000.0,
+    "hazmat_allowed": true,
+    "available_months": [11, 12, 1, 2, 3]
+  },
+  {
+    "id": "LEG-CPT-MAI-AIR",
+    "origin_id": "LOC-CPT",
+    "destination_id": "LOC-MAI",
+    "mode": "aircraft",
+    "duration_days": 3,
+    "capacity_kg": 1500.0,
+    "hazmat_allowed": false,
+    "available_months": [11, 12, 1, 2]
+  },
+  {
+    "id": "LEG-GOA-BHA-CARGO",
+    "origin_id": "LOC-GOA",
+    "destination_id": "LOC-BHA",
+    "mode": "cargo_flight",
+    "duration_days": 2,
+    "capacity_kg": 2500.0,
+    "hazmat_allowed": false,
+    "available_months": [12, 1]
+  },
+  {
+    "id": "LEG-MAI-BHA-HELI",
+    "origin_id": "LOC-MAI",
+    "destination_id": "LOC-BHA",
+    "mode": "helicopter",
+    "duration_days": 1,
+    "capacity_kg": 800.0,
+    "hazmat_allowed": false,
+    "available_months": [11, 12, 1, 2, 3]
+  }
+]

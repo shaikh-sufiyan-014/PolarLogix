@@ -12,8 +12,10 @@ import {
 } from 'lucide-react';
 
 const locations = [
-  { id: 'LOC-BHA', name: 'Bharati Station', tag: 'Larsemann Hills' },
-  { id: 'LOC-MAI', name: 'Maitri Station', tag: 'Prydz Bay / Schirmacher' },
+  { id: 'LOC-BHA', name: 'Bharati Station', tag: 'Larsemann Hills (Antarctica)' },
+  { id: 'LOC-MAI', name: 'Maitri Station', tag: 'Schirmacher Oasis (Antarctica)' },
+  { id: 'LOC-HIM', name: 'Himadri Station', tag: 'Ny-Ålesund, Svalbard (Arctic)' },
+  { id: 'LOC-HMS', name: 'Himansh Base', tag: 'Sutri Dhaka (Himalayas)' },
   { id: 'LOC-CPT', name: 'Cape Town Transfer', tag: 'South Africa Staging' },
   { id: 'LOC-GOA', name: 'India Depot', tag: 'NCPOR Goa Base' }
 ];
@@ -42,9 +44,10 @@ export default function InventoryDashboard() {
     setError(null);
     try {
       const data = await getInventory(activeLocationId);
-      setInventory(data);
+      setInventory(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      console.error('InventoryDashboard fetchInventory error:', err);
+      setInventory([]);
       setError("Unable to reach PolarLogix backend server on port 8008. Please check backend status.");
     } finally {
       setLoading(false);
@@ -66,11 +69,13 @@ export default function InventoryDashboard() {
       setNewItem({ item_name: '', category: 'fuel', quantity: 1000, unit: 'liters', minimum_threshold: 500 });
       fetchInventory();
     } catch (err) {
-      console.error(err);
+      console.error('Failed to save item:', err);
     }
   };
 
-  const activeLocInfo = locations.find(l => l.id === activeLocationId);
+  const safeLocations = Array.isArray(locations) ? locations : [];
+  const activeLocInfo = safeLocations.find(l => l.id === activeLocationId);
+  const safeInventory = Array.isArray(inventory) ? inventory : [];
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -138,14 +143,14 @@ export default function InventoryDashboard() {
       {/* Active Tab Location Info */}
       <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
         <span>Managing supplies for <strong>{activeLocInfo?.name}</strong> ({activeLocInfo?.tag})</span>
-        <span className="font-mono">{inventory.length} Recorded Items</span>
+        <span className="font-mono">{safeInventory.length} Recorded Items</span>
       </div>
 
       {/* Inventory Table */}
       <div className="glass-panel p-5 space-y-4">
         {loading ? (
           <LoadingSkeleton type="list" count={5} />
-        ) : inventory.length === 0 && !error ? (
+        ) : safeInventory.length === 0 && !error ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">
             No stock inventory items recorded for this station depot.
           </div>
@@ -162,21 +167,23 @@ export default function InventoryDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {inventory.map((item) => {
-                  const isLow = item.quantity <= item.minimum_threshold;
+                {safeInventory.map((item) => {
+                  const qty = typeof item?.quantity === 'number' ? item.quantity : parseFloat(item?.quantity || 0);
+                  const minThresh = typeof item?.minimum_threshold === 'number' ? item.minimum_threshold : parseFloat(item?.minimum_threshold || 0);
+                  const isLow = qty <= minThresh;
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr key={item?.id || Math.random()} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="p-3.5 font-bold text-slate-900 dark:text-white text-sm">
-                        {item.item_name}
+                        {item?.item_name}
                       </td>
                       <td className="p-3.5 capitalize font-medium text-slate-500 dark:text-slate-400">
-                        {item.category.replace('_', ' ')}
+                        {item?.category?.replace('_', ' ') || 'General'}
                       </td>
                       <td className="p-3.5 font-mono text-sm font-bold text-slate-800 dark:text-slate-200">
-                        {item.quantity.toLocaleString()} {item.unit}
+                        {qty.toLocaleString()} {item?.unit || ''}
                       </td>
                       <td className="p-3.5 font-mono text-slate-400">
-                        {item.minimum_threshold.toLocaleString()} {item.unit}
+                        {minThresh.toLocaleString()} {item?.unit || ''}
                       </td>
                       <td className="p-3.5">
                         {isLow ? (

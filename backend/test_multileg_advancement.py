@@ -1,14 +1,19 @@
-import urllib.request
-import json
-from database import SessionLocal
+from fastapi.testclient import TestClient
+from main import app
 from seed import seed_database
-import models
+import auth
+
+client = TestClient(app)
 
 def test_multileg_simulation_and_persistence():
     print("--- 1. SEEDING DATABASE ---")
     seed_database()
 
-    BASE_URL = "http://127.0.0.1:8008/api"
+    # Login as Super Admin
+    login_res = client.post("/api/auth/login", json={"username": "admin.ncpor", "password": "Demo@Admin2026"})
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
 
     # Create a Multi-Leg Hazmat shipment via POST /api/shipments
     create_payload = {
@@ -22,10 +27,9 @@ def test_multileg_simulation_and_persistence():
         "target_month": 1
     }
 
-    req_data = json.dumps(create_payload).encode('utf-8')
-    req = urllib.request.Request(f"{BASE_URL}/shipments", data=req_data, headers={'Content-Type': 'application/json'}, method='POST')
-    res = urllib.request.urlopen(req)
-    shipment = json.loads(res.read().decode('utf-8'))
+    res = client.post("/api/shipments", json=create_payload, headers=headers)
+    assert res.status_code == 201
+    shipment = res.json()
     shp_id = shipment['id']
 
     print(f"\n[OK] Multi-Leg Shipment Created: ID={shp_id}")
@@ -33,8 +37,9 @@ def test_multileg_simulation_and_persistence():
 
     def fetch_persisted_db_state(step_name):
         """Fetch directly from DB endpoint to confirm persistence"""
-        get_req = urllib.request.urlopen(f"{BASE_URL}/shipments/{shp_id}")
-        data = json.loads(get_req.read().decode('utf-8'))
+        get_res = client.get(f"/api/shipments/{shp_id}", headers=headers)
+        assert get_res.status_code == 200
+        data = get_res.json()
         print(f"   [DB PERSISTENCE CHECK] ({step_name}):")
         print(f"      - Status: {data['status']}")
         print(f"      - Current Location: {data['current_location_id']} ({data['current_location']['name']})")
@@ -43,32 +48,32 @@ def test_multileg_simulation_and_persistence():
 
     # STEP 1: Planned -> In Transit (Goa)
     print("\n--- STEP 1: Advancing Leg (Planned -> In Transit) ---")
-    adv_req = urllib.request.Request(f"{BASE_URL}/shipments/{shp_id}/advance-leg", method='POST')
-    res1 = urllib.request.urlopen(adv_req)
+    res1 = client.post(f"/api/shipments/{shp_id}/advance-leg", headers=headers)
+    assert res1.status_code == 200
     s1 = fetch_persisted_db_state("After Step 1")
     assert s1['status'] == 'in_transit', f"Expected in_transit, got {s1['status']}"
     assert s1['current_location_id'] == 'LOC-GOA', f"Expected LOC-GOA, got {s1['current_location_id']}"
 
     # STEP 2: In Transit -> At Transfer Point (Cape Town)
     print("\n--- STEP 2: Advancing Leg (In Transit -> At Transfer Point [Cape Town Staging]) ---")
-    adv_req = urllib.request.Request(f"{BASE_URL}/shipments/{shp_id}/advance-leg", method='POST')
-    res2 = urllib.request.urlopen(adv_req)
+    res2 = client.post(f"/api/shipments/{shp_id}/advance-leg", headers=headers)
+    assert res2.status_code == 200
     s2 = fetch_persisted_db_state("After Step 2")
     assert s2['status'] == 'at_transfer_point', f"Expected at_transfer_point, got {s2['status']}"
     assert s2['current_location_id'] == 'LOC-CPT', f"Expected LOC-CPT, got {s2['current_location_id']}"
 
     # STEP 3: At Transfer Point -> In Transit (Cape Town leg 2 departure)
     print("\n--- STEP 3: Advancing Leg (At Transfer Point -> In Transit on 2nd Leg) ---")
-    adv_req = urllib.request.Request(f"{BASE_URL}/shipments/{shp_id}/advance-leg", method='POST')
-    res3 = urllib.request.urlopen(adv_req)
+    res3 = client.post(f"/api/shipments/{shp_id}/advance-leg", headers=headers)
+    assert res3.status_code == 200
     s3 = fetch_persisted_db_state("After Step 3")
     assert s3['status'] == 'in_transit', f"Expected in_transit, got {s3['status']}"
     assert s3['current_location_id'] == 'LOC-CPT', f"Expected LOC-CPT, got {s3['current_location_id']}"
 
     # STEP 4: In Transit -> Delivered (Maitri Research Station)
     print("\n--- STEP 4: Advancing Leg (In Transit -> Delivered at Destination) ---")
-    adv_req = urllib.request.Request(f"{BASE_URL}/shipments/{shp_id}/advance-leg", method='POST')
-    res4 = urllib.request.urlopen(adv_req)
+    res4 = client.post(f"/api/shipments/{shp_id}/advance-leg", headers=headers)
+    assert res4.status_code == 200
     s4 = fetch_persisted_db_state("After Step 4")
     assert s4['status'] == 'delivered', f"Expected delivered, got {s4['status']}"
     assert s4['current_location_id'] == 'LOC-MAI', f"Expected LOC-MAI, got {s4['current_location_id']}"

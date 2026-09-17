@@ -39,9 +39,10 @@ export default function ShipmentTracker() {
         status: selectedStatus || undefined,
         destination: selectedDestination || undefined
       });
-      setShipments(data);
+      setShipments(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      console.error('ShipmentTracker fetchShipments error:', err);
+      setShipments([]);
       setError("Unable to connect to PolarLogix backend API server on port 8008. Please verify backend service is running.");
     } finally {
       setLoading(false);
@@ -54,7 +55,7 @@ export default function ShipmentTracker() {
     try {
       const updated = await advanceShipmentLeg(shipmentId);
       // Immediately update local state without page refresh
-      setShipments(prev => prev.map(s => s.id === shipmentId ? { ...s, ...updated } : s));
+      setShipments(prev => (Array.isArray(prev) ? prev : []).map(s => s?.id === shipmentId ? { ...s, ...updated } : s));
       if (activeModalShipment?.id === shipmentId) {
         setActiveModalShipment(prev => ({ ...prev, ...updated }));
       }
@@ -68,19 +69,21 @@ export default function ShipmentTracker() {
   const handleStatusUpdate = async (shipmentId, newStatus) => {
     try {
       const updated = await updateShipmentStatus(shipmentId, { status: newStatus });
-      setShipments(prev => prev.map(s => s.id === shipmentId ? { ...s, ...updated } : s));
+      setShipments(prev => (Array.isArray(prev) ? prev : []).map(s => s?.id === shipmentId ? { ...s, ...updated } : s));
       if (activeModalShipment?.id === shipmentId) {
         setActiveModalShipment(prev => ({ ...prev, ...updated }));
       }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to update status:', err);
     }
   };
 
-  const filteredShipments = shipments.filter(s =>
-    s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const safeShipments = Array.isArray(shipments) ? shipments : [];
+  const query = (searchQuery || '').toLowerCase();
+  const filteredShipments = safeShipments.filter(s =>
+    (s?.description || '').toLowerCase().includes(query) ||
+    (s?.id || '').toLowerCase().includes(query) ||
+    (s?.category || '').toLowerCase().includes(query)
   );
 
   return (
@@ -176,11 +179,11 @@ export default function ShipmentTracker() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredShipments.map((shp) => {
             
-            const isDelivered = shp.status === 'delivered';
+            const isDelivered = shp?.status === 'delivered';
 
             return (
               <div
-                key={shp.id}
+                key={shp?.id || Math.random()}
                 onClick={() => setActiveModalShipment(shp)}
                 className="glass-panel p-5 cursor-pointer hover:border-sky-500/50 transition-all transform hover:-translate-y-0.5 space-y-4 flex flex-col justify-between group"
               >
@@ -188,21 +191,21 @@ export default function ShipmentTracker() {
                 {/* Top ID & Status */}
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-xs font-bold text-sky-500 group-hover:underline">
-                    {shp.id}
+                    {shp?.id}
                   </span>
-                  <StatusBadge status={shp.status} />
+                  <StatusBadge status={shp?.status} />
                 </div>
 
                 {/* Main Cargo Info */}
                 <div>
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-sky-400 transition-colors">
-                    {shp.description}
+                    {shp?.description}
                   </h3>
                   <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    <span className="capitalize">{shp.category.replace('_', ' ')}</span>
+                    <span className="capitalize">{shp?.category?.replace('_', ' ') || 'General'}</span>
                     <span>•</span>
-                    <span className="font-mono">{shp.weight_kg} kg</span>
-                    {shp.is_hazmat && (
+                    <span className="font-mono">{shp?.weight_kg ?? 0} kg</span>
+                    {shp?.is_hazmat && (
                       <span className="px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-500 font-bold text-[10px]">
                         HAZMAT
                       </span>
@@ -214,7 +217,7 @@ export default function ShipmentTracker() {
                 <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-xs flex items-center justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Current Position:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {shp.current_location?.name || shp.current_location_id}
+                    {shp?.current_location?.name || shp?.current_location_id || 'Unknown'}
                   </span>
                 </div>
 
@@ -305,19 +308,19 @@ export default function ShipmentTracker() {
               <div>
                 <span className="text-slate-400 block">Category:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
-                  {activeModalShipment.category.replace('_', ' ')}
+                  {activeModalShipment.category?.replace('_', ' ') || 'General'}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block">Weight:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
-                  {activeModalShipment.weight_kg} kg
+                  {activeModalShipment.weight_kg ?? 0} kg
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block">Box Label:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {activeModalShipment.box_label}
+                  {activeModalShipment.box_label || 'N/A'}
                 </span>
               </div>
               <div>

@@ -10,12 +10,14 @@ import {
   CheckCircle2,
   Send,
   X,
-  Radio
+  Radio,
+  RefreshCw
 } from 'lucide-react';
 
 export default function EmergencyResponse() {
   const [emergencies, setEmergencies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [showReportModal, setShowReportModal] = useState(false);
   const [logInputMap, setLogInputMap] = useState({});
@@ -33,11 +35,14 @@ export default function EmergencyResponse() {
 
   const fetchEmergencies = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getEmergencies(selectedStatus || undefined);
-      setEmergencies(data);
+      setEmergencies(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      console.error('EmergencyResponse fetchEmergencies error:', err);
+      setEmergencies([]);
+      setError("Unable to reach PolarLogix emergency incident server on port 8008. Please check backend connection.");
     } finally {
       setLoading(false);
     }
@@ -111,6 +116,26 @@ export default function EmergencyResponse() {
         </button>
       </div>
 
+      {/* Visible Error State (No Silent Fallback) */}
+      {error && (
+        <div className="p-4 glass-panel border-l-4 border-l-rose-500 bg-rose-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3 text-rose-500">
+            <AlertTriangle className="w-6 h-6 flex-shrink-0" />
+            <div>
+              <h3 className="font-bold text-sm">Emergency Hub Connection Error</h3>
+              <p className="text-xs opacity-90">{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={fetchEmergencies}
+            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-lg text-xs transition-colors flex items-center space-x-1"
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1" />
+            <span>Retry Connection</span>
+          </button>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -144,17 +169,17 @@ export default function EmergencyResponse() {
       {/* Incident List / Feed */}
       {loading ? (
         <LoadingSkeleton type="cards" count={3} />
-      ) : emergencies.length === 0 ? (
+      ) : (Array.isArray(emergencies) ? emergencies : []).length === 0 && !error ? (
         <div className="glass-panel p-12 text-center text-slate-500 dark:text-slate-400">
           No emergency incidents recorded matching filter.
         </div>
       ) : (
         <div className="space-y-4">
-          {emergencies.map((emg) => {
-            const isOpen = emg.status === 'open';
+          {(Array.isArray(emergencies) ? emergencies : []).map((emg) => {
+            const isOpen = emg?.status === 'open';
             return (
               <div
-                key={emg.id}
+                key={emg?.id || Math.random()}
                 className={`glass-panel p-6 space-y-4 border-l-4 transition-all ${
                   isOpen ? 'border-l-rose-500 shadow-lg shadow-rose-500/5' : 'border-l-emerald-500 opacity-90'
                 }`}
@@ -163,16 +188,16 @@ export default function EmergencyResponse() {
                 {/* Top Row Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center space-x-3">
-                    <span className="font-mono text-xs font-bold text-slate-400">{emg.id}</span>
-                    <StatusBadge status={emg.severity} />
-                    <StatusBadge status={emg.status} />
+                    <span className="font-mono text-xs font-bold text-slate-400">{emg?.id}</span>
+                    <StatusBadge status={emg?.severity} />
+                    <StatusBadge status={emg?.status} />
                   </div>
                   <div className="flex items-center space-x-3 text-xs">
                     <span className="text-slate-400 flex items-center">
-                      <Clock className="w-3.5 h-3.5 mr-1" /> {emg.reported_at?.replace('T', ' ').slice(0, 16)}
+                      <Clock className="w-3.5 h-3.5 mr-1" /> {emg?.reported_at ? emg.reported_at.replace('T', ' ').slice(0, 16) : 'Unknown'}
                     </span>
                     <button
-                      onClick={() => handleToggleStatus(emg.id, emg.status)}
+                      onClick={() => handleToggleStatus(emg?.id, emg?.status)}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
                         isOpen
                           ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white border border-emerald-500/20'
@@ -188,10 +213,10 @@ export default function EmergencyResponse() {
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
                     <Radio className="w-4 h-4 text-rose-500" />
-                    <span>{emg.event_type} — {emg.station?.name || emg.station_id}</span>
+                    <span>{emg?.event_type || 'Incident'} — {emg?.station?.name || emg?.station_id || 'Base'}</span>
                   </h3>
                   <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
-                    {emg.description}
+                    {emg?.description}
                   </p>
                 </div>
 
@@ -201,7 +226,7 @@ export default function EmergencyResponse() {
                     Response Dispatch Timeline Log:
                   </span>
                   <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-                    {emg.response_log || 'No response log entries.'}
+                    {emg?.response_log || 'No response log entries.'}
                   </pre>
                 </div>
 
@@ -211,13 +236,13 @@ export default function EmergencyResponse() {
                     <input
                       type="text"
                       placeholder="Type response log update..."
-                      value={logInputMap[emg.id] || ''}
-                      onChange={(e) => setLogInputMap({ ...logInputMap, [emg.id]: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddLogEntry(emg.id)}
+                      value={logInputMap[emg?.id] || ''}
+                      onChange={(e) => setLogInputMap({ ...logInputMap, [emg?.id]: e.target.value })}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddLogEntry(emg?.id)}
                       className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
                     <button
-                      onClick={() => handleAddLogEntry(emg.id)}
+                      onClick={() => handleAddLogEntry(emg?.id)}
                       className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow transition-colors"
                     >
                       <Send className="w-3.5 h-3.5" />
