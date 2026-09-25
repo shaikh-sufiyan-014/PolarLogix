@@ -116,10 +116,10 @@ export default function ShipmentPlanner({ setActiveTab }) {
             <Navigation className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Marine Waypoint & Weather-Aware Route Planner
             </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-slate-600">
               Searoute nautical navigation engine avoiding landmasses with live Open-Meteo marine weather verification
             </p>
           </div>
@@ -130,7 +130,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
         
         {/* Route Planning Form (Left Column) */}
         <div className="lg:col-span-5 glass-panel p-6 space-y-5">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+          <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
             <Compass className="w-4 h-4 text-sky-500" />
             <span>Cargo & Voyage Parameters</span>
           </h2>
@@ -138,7 +138,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
           <form onSubmit={handleCalculateRoute} className="space-y-4">
             
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Cargo Description *
               </label>
               <input
@@ -147,19 +147,19 @@ export default function ShipmentPlanner({ setActiveTab }) {
                 placeholder="e.g. Autonomous Oceanographic Glider"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Category
                 </label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 >
                   <option value="scientific_equipment">Scientific Equipment</option>
                   <option value="food">Food Rations</option>
@@ -171,7 +171,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Weight (kg) *
                 </label>
                 <input
@@ -181,20 +181,20 @@ export default function ShipmentPlanner({ setActiveTab }) {
                   max="50000"
                   value={formData.weight_kg}
                   onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Origin Depot
                 </label>
                 <select
                   value={formData.origin_id}
                   onChange={(e) => setFormData({ ...formData, origin_id: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 >
                   <option value="LOC-GOA">India Depot (Goa)</option>
                   <option value="LOC-CPT">Cape Town Transfer Point</option>
@@ -202,13 +202,13 @@ export default function ShipmentPlanner({ setActiveTab }) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Destination Station
                 </label>
                 <select
                   value={formData.destination_id}
                   onChange={(e) => setFormData({ ...formData, destination_id: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 >
                   <option value="LOC-BHA">Bharati Research Station</option>
                   <option value="LOC-MAI">Maitri Research Station</option>
@@ -219,25 +219,25 @@ export default function ShipmentPlanner({ setActiveTab }) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Box / Manifest Label
                 </label>
                 <input
                   type="text"
                   value={formData.box_label}
                   onChange={(e) => setFormData({ ...formData, box_label: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Target Season Month
                 </label>
                 <select
                   value={formData.target_month}
                   onChange={(e) => setFormData({ ...formData, target_month: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 >
                   <option value={1}>January (Summer Ops)</option>
                   <option value={2}>February (Summer Ops)</option>
@@ -249,13 +249,13 @@ export default function ShipmentPlanner({ setActiveTab }) {
             </div>
 
             {/* Hazmat Toggle Switch */}
-            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
+                <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
                   <ShieldAlert className="w-4 h-4 text-rose-500" />
                   <span>Hazardous Cargo (Hazmat)</span>
                 </span>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] text-slate-500">
                   Restricts voyage to heavy maritime vessels (air transport excluded)
                 </p>
               </div>
@@ -300,8 +300,8 @@ export default function ShipmentPlanner({ setActiveTab }) {
               <div className="w-16 h-16 rounded-full bg-sky-500/10 text-sky-500 flex items-center justify-center mx-auto">
                 <Compass className="w-8 h-8" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Maritime Routing Engine Ready</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              <h3 className="text-lg font-bold text-slate-900">Maritime Routing Engine Ready</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto">
                 Select cargo specifications and stations on the left to compute realistic marine waypoints and check live weather along the sea route.
               </p>
             </div>
@@ -320,21 +320,21 @@ export default function ShipmentPlanner({ setActiveTab }) {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 text-xs">
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-xs">
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400">Total Duration:</span>
-                    <div className="font-bold text-slate-900 dark:text-white font-mono text-sm">
+                    <span className="text-slate-500">Total Duration:</span>
+                    <div className="font-bold text-slate-900 font-mono text-sm">
                       {routePlan.total_duration_days} Days
                     </div>
                   </div>
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400">Target Station:</span>
-                    <div className="font-bold text-slate-900 dark:text-white">
+                    <span className="text-slate-500">Target Station:</span>
+                    <div className="font-bold text-slate-900">
                       {locationCoordinates[routePlan.destination_id]?.name || routePlan.destination_id}
                     </div>
                   </div>
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400">Marine Engine:</span>
+                    <span className="text-slate-500">Marine Engine:</span>
                     <div className="font-bold text-sky-500 font-mono text-sm">Searoute v1.6</div>
                   </div>
                 </div>
@@ -342,16 +342,16 @@ export default function ShipmentPlanner({ setActiveTab }) {
 
               {/* PHASE 3: ALGORITHMIC WEATHER THRESHOLD CHECK (EXACT LABELING) */}
               {weatherAdvisory && (
-                <div className="glass-panel p-5 space-y-4 border border-slate-200 dark:border-slate-800 shadow-lg">
+                <div className="glass-panel p-5 space-y-4 border border-slate-200 shadow-lg">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="space-y-0.5">
                       <div className="flex items-center space-x-2">
                         <Waves className="w-4 h-4 text-sky-500" />
-                        <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                        <h3 className="font-bold text-sm text-slate-900">
                           Algorithmic Weather Threshold Check using Live Marine Data
                         </h3>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         Deterministic threshold check querying live Open-Meteo Marine (wave height) & Forecast API (wind in knots)
                       </p>
                     </div>
@@ -377,7 +377,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
 
                   {/* Advisory Alert Banner if Conditions Exceed Threshold */}
                   {weatherAdvisory.adverse_weather_detected && (
-                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 space-y-1.5">
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 space-y-1.5">
                       <div className="font-bold flex items-center space-x-1.5">
                         <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                         <span>Adverse Marine Conditions Exceed Safety Thresholds</span>
@@ -388,7 +388,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
                         ))}
                       </div>
                       {weatherAdvisory.suggested_action && (
-                        <div className="pt-2 border-t border-amber-500/20 font-medium text-slate-800 dark:text-slate-200">
+                        <div className="pt-2 border-t border-amber-500/20 font-medium text-slate-800">
                           <span className="font-bold text-amber-500">Suggested Action: </span>
                           {weatherAdvisory.suggested_action}
                         </div>
@@ -410,7 +410,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-900 dark:text-white truncate">{wp.name}</span>
+                          <span className="font-bold text-slate-900 truncate">{wp.name}</span>
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
                             wp.status === 'adverse'
                               ? 'bg-amber-500/10 text-amber-500'
@@ -422,7 +422,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-slate-600 dark:text-slate-300">
+                        <div className="space-y-1 text-slate-600">
                           <div className="flex items-center justify-between">
                             <span className="flex items-center text-slate-400">
                               <Waves className="w-3 h-3 mr-1" /> Wave Height:
@@ -442,7 +442,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
                           </div>
                         </div>
 
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800 line-clamp-2">
+                        <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200 line-clamp-2">
                           {wp.details}
                         </div>
                       </div>
@@ -460,33 +460,33 @@ export default function ShipmentPlanner({ setActiveTab }) {
 
               {/* Step-by-Step Multi-Modal Itinerary */}
               <div className="glass-panel p-5 space-y-4">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
                   <Route className="w-4 h-4 text-sky-500" />
                   <span>Step-by-Step Multi-Modal Itinerary (Realistic Durations)</span>
                 </h3>
 
                 <div className="space-y-3">
                   {computedLegs.map((leg, idx) => (
-                    <div key={idx} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-500 font-bold text-xs flex items-center justify-center flex-shrink-0">
                           L{idx + 1}
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center space-x-2">
+                          <div className="font-bold text-sm text-slate-900 flex items-center space-x-2">
                             <span>{locationCoordinates[leg?.origin_id]?.name || leg?.origin_id}</span>
                             <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
                             <span>{locationCoordinates[leg?.destination_id]?.name || leg?.destination_id}</span>
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-2">
+                          <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-2">
                             <span className="capitalize">Mode: <b className="text-sky-500">{leg?.mode ? leg.mode.replace('_', ' ') : 'Leg'}</b></span>
-                            {leg.distance_nm && <span>• Distance: <b className="font-mono text-slate-700 dark:text-slate-300">{leg.distance_nm.toLocaleString()} nm</b></span>}
-                            {leg.average_speed_knots && <span>• Speed: <b className="font-mono text-slate-700 dark:text-slate-300">{leg.average_speed_knots} kt</b></span>}
+                            {leg.distance_nm && <span>• Distance: <b className="font-mono text-slate-700">{leg.distance_nm.toLocaleString()} nm</b></span>}
+                            {leg.average_speed_knots && <span>• Speed: <b className="font-mono text-slate-700">{leg.average_speed_knots} kt</b></span>}
                           </div>
                         </div>
                       </div>
 
-                      <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 self-start sm:self-center">
+                      <span className="font-mono text-xs font-bold text-slate-700 px-3 py-1 rounded-lg bg-slate-200 self-start sm:self-center">
                         {leg?.duration_days ?? 0} Days Transit
                       </span>
                     </div>
@@ -503,7 +503,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
                     <span>Confirm & Create Cargo Shipment Record</span>
                   </button>
                 ) : (
-                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-xs font-bold">
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Shipment Created: {createdShipment.id}</span>
@@ -522,7 +522,7 @@ export default function ShipmentPlanner({ setActiveTab }) {
               {/* Map Preview */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-slate-900">
                     Real Curved Marine Polyline Map Visualizer
                   </h3>
                   <span className="text-xs text-sky-500 font-medium">Avoiding Landmasses</span>

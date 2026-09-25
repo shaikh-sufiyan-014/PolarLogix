@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useConnectivity } from '../context/ConnectivityContext';
 import {
   getDashboardSummary,
   getInventory,
   getPersonnel,
   getEmergencies,
   getShipments,
-  saveInventoryItem,
-  createEmergency,
-  updateEmergency
+  updateEmergency,
+  updateInventoryItem,
+  deleteInventoryItem
 } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSkeleton from '../components/LoadingSkeleton';
@@ -28,11 +29,18 @@ import {
   Wind,
   Compass,
   ArrowDownRight,
-  ChevronRight
+  ChevronRight,
+  Database,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  Loader2
 } from 'lucide-react';
 
 export default function StationCommanderDashboard() {
   const { user } = useAuth();
+  const { submitEmergency, submitInventoryItem } = useConnectivity();
   const [activeTab, setActiveTab] = useState('overview'); // overview, inventory, personnel, emergencies
 
   const [summary, setSummary] = useState(null);
@@ -42,14 +50,21 @@ export default function StationCommanderDashboard() {
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Inventory inline edit & delete state
+  const [editingInvId, setEditingInvId] = useState(null);
+  const [invEditForm, setInvEditForm] = useState({ quantity: '', minimum_threshold: '' });
+  const [isInvSaving, setIsInvSaving] = useState(false);
+  const [deleteInvItem, setDeleteInvItem] = useState(null);
+  const [isInvDeleting, setIsInvDeleting] = useState(false);
+
   // Modals / forms
   const [showInvModal, setShowInvModal] = useState(false);
   const [invForm, setInvForm] = useState({ item_name: '', category: 'spare_parts', quantity: 10, unit: 'units', minimum_threshold: 5 });
   
   const [showEmgModal, setShowEmgModal] = useState(false);
-  const [emgForm, setEmgForm] = useState({ event_type: '', severity: 'high', description: '' });
+  const [emgForm, setEmgForm] = useState({ event_type: 'Severe Blizzard', severity: 'critical', description: '' });
 
-  const [responseLogInputs, setResponseLogInputs] = useState({});
+  const [responseLogMap, setResponseLogMap] = useState({});
 
   const stationName = user?.linked_station_id === 'LOC-BHA' ? 'Bharati Research Station' : 'Maitri Research Station';
   const stationCode = user?.linked_station_id === 'LOC-BHA' ? 'BHARATI-STN (Larsemann Hills)' : 'MAITRI-STN (Schirmacher Oasis)';
@@ -89,7 +104,7 @@ export default function StationCommanderDashboard() {
   const handleAddInventory = async (e) => {
     e.preventDefault();
     try {
-      await saveInventoryItem(user.linked_station_id, {
+      await submitInventoryItem(user.linked_station_id, {
         location_id: user.linked_station_id,
         item_name: invForm.item_name,
         category: invForm.category,
@@ -101,33 +116,82 @@ export default function StationCommanderDashboard() {
       setInvForm({ item_name: '', category: 'spare_parts', quantity: 10, unit: 'units', minimum_threshold: 5 });
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to save inventory item');
+      alert('Failed to save inventory item');
+    }
+  };
+
+  const handleStartInvEdit = (item) => {
+    setEditingInvId(item.id);
+    setInvEditForm({
+      quantity: item.quantity !== undefined ? item.quantity : '',
+      minimum_threshold: item.minimum_threshold !== undefined ? item.minimum_threshold : ''
+    });
+  };
+
+  const handleCancelInvEdit = () => {
+    setEditingInvId(null);
+    setInvEditForm({ quantity: '', minimum_threshold: '' });
+  };
+
+  const handleSaveInvEdit = async (itemId) => {
+    const qty = parseFloat(invEditForm.quantity);
+    const minThresh = parseFloat(invEditForm.minimum_threshold);
+    if (isNaN(qty) || qty < 0 || isNaN(minThresh) || minThresh < 0) {
+      alert('Please enter valid numeric values.');
+      return;
+    }
+    setIsInvSaving(true);
+    try {
+      const updated = await updateInventoryItem(itemId, {
+        quantity: qty,
+        minimum_threshold: minThresh
+      });
+      setInventory(prev => prev.map(item => item.id === itemId ? { ...item, ...updated, quantity: qty, minimum_threshold: minThresh } : item));
+      setEditingInvId(null);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to update inventory item');
+    } finally {
+      setIsInvSaving(false);
+    }
+  };
+
+  const handleConfirmDeleteInv = async () => {
+    if (!deleteInvItem) return;
+    setIsInvDeleting(true);
+    try {
+      await deleteInventoryItem(deleteInvItem.id);
+      setInventory(prev => prev.filter(item => item.id !== deleteInvItem.id));
+      setDeleteInvItem(null);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to delete inventory item');
+    } finally {
+      setIsInvDeleting(false);
     }
   };
 
   const handleReportEmergency = async (e) => {
     e.preventDefault();
     try {
-      await createEmergency({
+      await submitEmergency({
         station_id: user.linked_station_id,
         event_type: emgForm.event_type,
         severity: emgForm.severity,
         description: emgForm.description
       });
       setShowEmgModal(false);
-      setEmgForm({ event_type: '', severity: 'high', description: '' });
+      setEmgForm({ event_type: 'Severe Blizzard', severity: 'critical', description: '' });
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to report emergency');
+      alert('Failed to report emergency');
     }
   };
 
   const handleSendResponseLog = async (emgId) => {
-    const text = responseLogInputs[emgId];
+    const text = responseLogMap[emgId];
     if (!text || !text.trim()) return;
     try {
       await updateEmergency(emgId, { response_log: text.trim() });
-      setResponseLogInputs(prev => ({ ...prev, [emgId]: '' }));
+      setResponseLogMap(prev => ({ ...prev, [emgId]: '' }));
       fetchData();
     } catch (err) {
       alert('Failed to update response log');
@@ -162,19 +226,19 @@ export default function StationCommanderDashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 flex items-center gap-1.5">
+              <span className="px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider bg-sky-500/10 text-sky-600 border border-sky-500/20 flex items-center gap-1.5">
                 <Radio className="w-3.5 h-3.5 animate-pulse text-sky-500" />
                 Station Scoped Operations
               </span>
-              <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                 Winter Over Active
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
               {stationName}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              {stationCode} • Commander Account: <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{user?.username}</span>
+            <p className="text-xs sm:text-sm text-slate-500">
+              {stationCode} • Commander Account: <span className="font-mono font-semibold text-slate-700">{user?.username}</span>
             </p>
           </div>
 
@@ -198,7 +262,7 @@ export default function StationCommanderDashboard() {
         </div>
 
         {/* Sub-Navigation Tabs */}
-        <div className="mt-8 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2">
+        <div className="mt-8 pt-4 border-t border-slate-200 flex flex-wrap gap-2">
           {[
             { id: 'overview', label: 'Station Overview', icon: Compass },
             { id: 'inventory', label: `Station Inventory (${inventory.length})`, icon: Boxes, alert: lowStockItems.length > 0 },
@@ -214,7 +278,7 @@ export default function StationCommanderDashboard() {
                 className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                   isActive
                     ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -234,37 +298,37 @@ export default function StationCommanderDashboard() {
           {/* 4 Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="glass-panel p-5 rounded-2xl space-y-1">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Station Shipments</span>
+              <span className="text-xs text-slate-500 font-medium">Station Shipments</span>
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-slate-900 dark:text-white">{shipments.length}</span>
+                <span className="text-2xl font-bold text-slate-900">{shipments.length}</span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded bg-sky-500/10 text-sky-500">Inbound/Local</span>
               </div>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl space-y-1">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Station Personnel</span>
+              <span className="text-xs text-slate-500 font-medium">Station Personnel</span>
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-slate-900 dark:text-white">{personnel.length}</span>
+                <span className="text-2xl font-bold text-slate-900">{personnel.length}</span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500">On Duty</span>
               </div>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl space-y-1">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Low Stock Alerts</span>
+              <span className="text-xs text-slate-500 font-medium">Low Stock Alerts</span>
               <div className="flex items-center justify-between">
-                <span className={`text-2xl font-bold ${lowStockItems.length > 0 ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>
+                <span className={`text-2xl font-bold ${lowStockItems.length > 0 ? 'text-amber-500' : 'text-slate-900'}`}>
                   {lowStockItems.length}
                 </span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${lowStockItems.length > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${lowStockItems.length > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-100 text-slate-400'}`}>
                   {lowStockItems.length > 0 ? 'Action Needed' : 'Supplies Nominal'}
                 </span>
               </div>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl space-y-1">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Station Emergencies</span>
+              <span className="text-xs text-slate-500 font-medium">Station Emergencies</span>
               <div className="flex items-center justify-between">
-                <span className={`text-2xl font-bold ${openEmergencies.length > 0 ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+                <span className={`text-2xl font-bold ${openEmergencies.length > 0 ? 'text-rose-500' : 'text-slate-900'}`}>
                   {openEmergencies.length}
                 </span>
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded ${openEmergencies.length > 0 ? 'bg-rose-500/10 text-rose-500 animate-pulse' : 'bg-emerald-500/10 text-emerald-500'}`}>
@@ -278,11 +342,11 @@ export default function StationCommanderDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 glass-panel p-5 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                   <Compass className="w-4 h-4 text-sky-500" />
                   Station Inbound Transport Corridors
                 </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400">Live Logistics Grid</span>
+                <span className="text-xs text-slate-500">Live Logistics Grid</span>
               </div>
               <div className="h-[360px] rounded-xl overflow-hidden">
                 <ExpeditionMap shipments={shipments} />
@@ -291,7 +355,7 @@ export default function StationCommanderDashboard() {
 
             {/* Inbound Cargo Watch */}
             <div className="glass-panel p-5 rounded-2xl space-y-4">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                 <Radio className="w-4 h-4 text-sky-500" />
                 Inbound Cargo Manifests
               </h3>
@@ -300,13 +364,13 @@ export default function StationCommanderDashboard() {
                   <p className="text-xs text-slate-500 text-center py-8">No inbound shipments currently scheduled.</p>
                 ) : (
                   shipments.map((shp) => (
-                    <div key={shp.id} className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-1.5">
+                    <div key={shp.id} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-mono font-bold text-sky-500">{shp.id}</span>
                         <StatusBadge status={shp.status} />
                       </div>
-                      <p className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-1">{shp.description}</p>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                      <p className="text-xs font-medium text-slate-800 line-clamp-1">{shp.description}</p>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
                         <span>Weight: {shp.weight_kg} kg</span>
                         <span>ETA: {shp.eta || 'Pending'}</span>
                       </div>
@@ -324,10 +388,10 @@ export default function StationCommanderDashboard() {
         <div className="glass-panel p-6 rounded-2xl space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h3 className="text-lg font-bold text-slate-900">
                 Station Reserve & Critical Supplies Inventory
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500">
                 Scoped strictly to {stationName}. Low-stock thresholds trigger resupply alerts automatically.
               </p>
             </div>
@@ -341,37 +405,131 @@ export default function StationCommanderDashboard() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold">
+              <thead className="border-b border-slate-200 text-slate-500 uppercase font-semibold">
                 <tr>
                   <th className="py-3 px-4">Item Name</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Current Stock</th>
                   <th className="py-3 px-4">Min. Threshold</th>
                   <th className="py-3 px-4">Stock Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100">
                 {inventory.map((item) => {
-                  const isLow = item.quantity <= item.minimum_threshold;
+                  const isEditing = editingInvId === item.id;
+                  const displayQty = isEditing ? parseFloat(invEditForm.quantity || 0) : item.quantity;
+                  const displayMin = isEditing ? parseFloat(invEditForm.minimum_threshold || 0) : item.minimum_threshold;
+                  const isLow = displayQty <= displayMin;
+
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{item.item_name}</td>
-                      <td className="py-3.5 px-4 capitalize text-slate-500 dark:text-slate-400">{item.category.replace('_', ' ')}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
-                        {item.quantity.toLocaleString()} {item.unit}
+                    <tr
+                      key={item.id}
+                      className={`transition-colors ${
+                        isEditing ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : 'hover:bg-slate-50/50'
+                      }`}
+                    >
+                      <td className="py-3.5 px-4 font-semibold text-slate-900">{item.item_name}</td>
+                      <td className="py-3.5 px-4 capitalize text-slate-500">{item.category.replace('_', ' ')}</td>
+                      
+                      {/* Current Stock */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                        {isEditing ? (
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold text-sky-700 block uppercase">Update current stock:</label>
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                value={invEditForm.quantity}
+                                onChange={(e) => setInvEditForm({ ...invEditForm, quantity: e.target.value })}
+                                className="w-24 px-2 py-1 text-xs font-mono font-bold bg-white border-2 border-sky-400 rounded-lg text-slate-900 focus:outline-none"
+                                autoFocus
+                              />
+                              <span className="text-slate-400 text-xs">{item.unit}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span>{item.quantity.toLocaleString()} {item.unit}</span>
+                        )}
                       </td>
+
+                      {/* Min Threshold */}
                       <td className="py-3.5 px-4 font-mono text-slate-500">
-                        {item.minimum_threshold.toLocaleString()} {item.unit}
+                        {isEditing ? (
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold text-slate-500 block uppercase">Min. threshold:</label>
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                value={invEditForm.minimum_threshold}
+                                onChange={(e) => setInvEditForm({ ...invEditForm, minimum_threshold: e.target.value })}
+                                className="w-24 px-2 py-1 text-xs font-mono bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none"
+                              />
+                              <span className="text-slate-400 text-xs">{item.unit}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span>{item.minimum_threshold.toLocaleString()} {item.unit}</span>
+                        )}
                       </td>
+
+                      {/* Stock Status Badge */}
                       <td className="py-3.5 px-4">
                         {isLow ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-600 border border-rose-500/30 animate-pulse">
                             <AlertTriangle className="w-3.5 h-3.5" /> Low Stock Warning
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
                             <CheckCircle2 className="w-3.5 h-3.5" /> Optimal
                           </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        {isEditing ? (
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              onClick={() => handleSaveInvEdit(item.id)}
+                              disabled={isInvSaving}
+                              className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-sm transition-all flex items-center gap-1 text-xs font-bold cursor-pointer"
+                              title="Save"
+                            >
+                              {isInvSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                              <span className="hidden sm:inline pr-1">Save</span>
+                            </button>
+                            <button
+                              onClick={handleCancelInvEdit}
+                              disabled={isInvSaving}
+                              className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-all flex items-center gap-1 text-xs cursor-pointer"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline pr-1">Cancel</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end space-x-1">
+                            <button
+                              onClick={() => handleStartInvEdit(item)}
+                              className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Stock Quantity"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteInvItem(item)}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -380,6 +538,56 @@ export default function StationCommanderDashboard() {
               </tbody>
             </table>
           </div>
+
+          {/* Delete Inventory Confirmation Dialog */}
+          {deleteInvItem && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+              <div className="glass-panel max-w-md w-full p-6 space-y-4 bg-white border-slate-300 rounded-2xl shadow-2xl relative">
+                <button
+                  onClick={() => !isInvDeleting && setDeleteInvItem(null)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="flex items-start space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center flex-shrink-0">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-slate-900">
+                      Delete Inventory Item?
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Delete this inventory item? This cannot be undone.
+                    </p>
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div className="font-bold text-slate-800">{deleteInvItem.item_name}</div>
+                  <div className="text-slate-500">Stock: {deleteInvItem.quantity} {deleteInvItem.unit}</div>
+                </div>
+                <div className="flex items-center justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteInvItem(null)}
+                    disabled={isInvDeleting}
+                    className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteInv}
+                    disabled={isInvDeleting}
+                    className="px-4 py-2 text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 rounded-xl shadow-lg shadow-rose-500/20 transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isInvDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    <span>Delete Stock Item</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -387,37 +595,37 @@ export default function StationCommanderDashboard() {
       {activeTab === 'personnel' && (
         <div className="glass-panel p-6 rounded-2xl space-y-6">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-bold text-slate-900">
               Station Deployed Personnel & Duty Status
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500">
               Station commander view of active expedition members, scientists, and engineers stationed at {stationName}.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {personnel.map((p) => (
-              <div key={p.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 space-y-3">
+              <div key={p.id} className="p-4 rounded-xl border border-slate-200 bg-white/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono font-bold text-sky-500">{p.id}</span>
-                  <span className="px-2 py-0.5 text-[10px] font-semibold rounded uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  <span className="px-2 py-0.5 text-[10px] font-semibold rounded uppercase bg-slate-100 text-slate-600">
                     {p.season_type} Expedition
                   </span>
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">{p.name}</h4>
-                  <p className="text-xs text-sky-600 dark:text-sky-400 font-medium">{p.role}</p>
+                  <h4 className="font-bold text-sm text-slate-900">{p.name}</h4>
+                  <p className="text-xs text-sky-600 font-medium">{p.role}</p>
                 </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                  <div>Station: <span className="text-slate-700 dark:text-slate-300">{p.assigned_station}</span></div>
+                <div className="text-[11px] text-slate-500 space-y-1 pt-2 border-t border-slate-100">
+                  <div>Station: <span className="text-slate-700">{p.assigned_station}</span></div>
                   <div>Period: <span className="font-mono">{p.deployment_start} to {p.deployment_end}</span></div>
                 </div>
 
                 {/* Work Activity Logs */}
                 {p.work_logs && p.work_logs.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                  <div className="mt-2 pt-2 border-t border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest Duty Status</span>
-                    <p className="text-xs text-slate-700 dark:text-slate-300 italic mt-0.5">
+                    <p className="text-xs text-slate-700 italic mt-0.5">
                       "{p.work_logs[p.work_logs.length - 1].status_text}"
                     </p>
                   </div>
@@ -433,10 +641,10 @@ export default function StationCommanderDashboard() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h3 className="text-lg font-bold text-slate-900">
                 Station Incident & SOS Command Hub
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500">
                 Connected emergency stream scoped to {stationName} and inbound vessels. Polling active every 15s.
               </p>
             </div>
@@ -470,7 +678,7 @@ export default function StationCommanderDashboard() {
                         </span>
                         <span className="text-xs text-slate-400">• Reported: {emg.reported_at?.substring(0, 16).replace('T', ' ')}</span>
                       </div>
-                      <h4 className="font-bold text-base text-slate-900 dark:text-white">{emg.event_type}</h4>
+                      <h4 className="font-bold text-base text-slate-900">{emg.event_type}</h4>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -489,7 +697,7 @@ export default function StationCommanderDashboard() {
                     </div>
                   </div>
 
-                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                  <p className="text-xs sm:text-sm text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
                     {emg.description}
                   </p>
 
@@ -509,9 +717,9 @@ export default function StationCommanderDashboard() {
                       <input
                         type="text"
                         placeholder="Post station commander response log update..."
-                        value={responseLogInputs[emg.id] || ''}
-                        onChange={(e) => setResponseLogInputs({ ...responseLogInputs, [emg.id]: e.target.value })}
-                        className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                        value={responseLogMap[emg.id] || ''}
+                        onChange={(e) => setResponseLogMap({ ...responseLogMap, [emg.id]: e.target.value })}
+                        className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
                       />
                       <button
                         onClick={() => handleSendResponseLog(emg.id)}
@@ -531,27 +739,27 @@ export default function StationCommanderDashboard() {
       {/* MODAL: ADD INVENTORY */}
       {showInvModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass-panel p-6 max-w-md w-full rounded-2xl space-y-4 bg-white dark:bg-[#111827]">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Add / Update Station Inventory</h3>
+          <div className="glass-panel p-6 max-w-md w-full rounded-2xl space-y-4 bg-white">
+            <h3 className="text-base font-bold text-slate-900">Add / Update Station Inventory</h3>
             <form onSubmit={handleAddInventory} className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Item Name</label>
+                <label className="text-xs font-semibold text-slate-700">Item Name</label>
                 <input
                   required
                   type="text"
                   value={invForm.item_name}
                   onChange={(e) => setInvForm({ ...invForm, item_name: e.target.value })}
                   placeholder="e.g. Polar Diesel Fuel"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Category</label>
+                  <label className="text-xs font-semibold text-slate-700">Category</label>
                   <select
                     value={invForm.category}
                     onChange={(e) => setInvForm({ ...invForm, category: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                   >
                     <option value="fuel">Fuel</option>
                     <option value="food">Food</option>
@@ -562,36 +770,36 @@ export default function StationCommanderDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Unit</label>
+                  <label className="text-xs font-semibold text-slate-700">Unit</label>
                   <input
                     required
                     type="text"
                     value={invForm.unit}
                     onChange={(e) => setInvForm({ ...invForm, unit: e.target.value })}
                     placeholder="liters, kg, units"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Quantity</label>
+                  <label className="text-xs font-semibold text-slate-700">Quantity</label>
                   <input
                     required
                     type="number"
                     value={invForm.quantity}
                     onChange={(e) => setInvForm({ ...invForm, quantity: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Min. Alert Threshold</label>
+                  <label className="text-xs font-semibold text-slate-700">Min. Alert Threshold</label>
                   <input
                     required
                     type="number"
                     value={invForm.minimum_threshold}
                     onChange={(e) => setInvForm({ ...invForm, minimum_threshold: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                   />
                 </div>
               </div>
@@ -600,7 +808,7 @@ export default function StationCommanderDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowInvModal(false)}
-                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
                 >
                   Cancel
                 </button>
@@ -619,28 +827,28 @@ export default function StationCommanderDashboard() {
       {/* MODAL: REPORT STATION EMERGENCY */}
       {showEmgModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass-panel p-6 max-w-md w-full rounded-2xl space-y-4 bg-white dark:bg-[#111827]">
+          <div className="glass-panel p-6 max-w-md w-full rounded-2xl space-y-4 bg-white">
             <h3 className="text-base font-bold text-rose-500 flex items-center gap-2">
               <ShieldAlert className="w-5 h-5" /> Report Station Emergency
             </h3>
             <form onSubmit={handleReportEmergency} className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Incident Type</label>
+                <label className="text-xs font-semibold text-slate-700">Incident Type</label>
                 <input
                   required
                   type="text"
                   value={emgForm.event_type}
                   onChange={(e) => setEmgForm({ ...emgForm, event_type: e.target.value })}
                   placeholder="e.g. Radome Antenna Damage, Genset Tripped"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Severity</label>
+                <label className="text-xs font-semibold text-slate-700">Severity</label>
                 <select
                   value={emgForm.severity}
                   onChange={(e) => setEmgForm({ ...emgForm, severity: e.target.value })}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                 >
                   <option value="low">Low - Minor Equipment Notice</option>
                   <option value="medium">Medium - Operational Warning</option>
@@ -649,14 +857,14 @@ export default function StationCommanderDashboard() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Description & Action Taken</label>
+                <label className="text-xs font-semibold text-slate-700">Description & Action Taken</label>
                 <textarea
                   required
                   rows={3}
                   value={emgForm.description}
                   onChange={(e) => setEmgForm({ ...emgForm, description: e.target.value })}
                   placeholder="Describe damage, impacted systems, and initial countermeasures..."
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                 />
               </div>
 
@@ -664,7 +872,7 @@ export default function StationCommanderDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowEmgModal(false)}
-                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
                 >
                   Cancel
                 </button>

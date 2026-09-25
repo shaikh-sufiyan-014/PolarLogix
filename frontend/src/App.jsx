@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { ConnectivityProvider } from './context/ConnectivityContext';
 import Navbar from './components/Navbar';
+import OfflineBanner from './components/OfflineBanner';
 import Login from './pages/Login';
 
 // Role-Scoped Dashboards
@@ -25,6 +26,16 @@ function AuthenticatedApp() {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  // Clear any legacy theme preference from localStorage on mount
+  useEffect(() => {
+    try {
+      localStorage.removeItem('polarlogix_theme');
+      document.documentElement.classList.remove('dark');
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Set default tab when user changes
   useEffect(() => {
     if (user) {
@@ -42,11 +53,11 @@ function AuthenticatedApp() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center space-y-4">
+      <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-500/25 animate-pulse">
           <Compass className="w-7 h-7 text-white animate-spin-slow" />
         </div>
-        <p className="text-xs font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
+        <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
           Initializing PolarLogix Secure Session...
         </p>
       </div>
@@ -58,9 +69,12 @@ function AuthenticatedApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-200 pb-16 lg:pb-0">
-      {/* Top Navbar with active role indicators */}
+    <div className="min-h-screen bg-[#FAFAFA] text-[#0F172A] pb-16 lg:pb-0">
+      {/* Top Navbar with active role indicators & Sync Widget */}
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Persistent Offline / PolarLink Status Banner */}
+      <OfflineBanner />
 
       {/* Main Content Area based on User Role */}
       <main className="transition-all duration-300">
@@ -90,10 +104,10 @@ function AuthenticatedApp() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+      <footer className="mt-12 border-t border-slate-200 py-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>PolarLogix Multi-Role RBAC • National Centre for Polar and Ocean Research (NCPOR)</span>
-          <span>Covering Maitri & Bharati Stations, Antarctica</span>
+          <span>Field Stations: Maitri, Bharati, Himadri & Himansh</span>
         </div>
       </footer>
     </div>
@@ -102,10 +116,10 @@ function AuthenticatedApp() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ConnectivityProvider>
         <AuthenticatedApp />
-      </AuthProvider>
-    </ThemeProvider>
+      </ConnectivityProvider>
+    </AuthProvider>
   );
 }

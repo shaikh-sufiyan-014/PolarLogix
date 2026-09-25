@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useConnectivity } from '../context/ConnectivityContext';
 import {
   getMyPersonnelProfile,
-  postWorkStatus,
-  createEmergency,
   getEmergencies
 } from '../services/api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
@@ -19,7 +18,8 @@ import {
   Sparkles,
   ClipboardList,
   Compass,
-  Radio
+  Radio,
+  Database
 } from 'lucide-react';
 
 const COMMON_STATUS_PRESETS = [
@@ -33,6 +33,7 @@ const COMMON_STATUS_PRESETS = [
 
 export default function PersonnelDashboard() {
   const { user } = useAuth();
+  const { submitPersonnelWorkStatus, submitEmergency } = useConnectivity();
   const [profile, setProfile] = useState(null);
   const [emergencies, setEmergencies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,8 +44,11 @@ export default function PersonnelDashboard() {
 
   // Emergency Modal
   const [showEmgModal, setShowEmgModal] = useState(false);
-  const [emgForm, setEmgForm] = useState({ event_type: 'Lab Instrument Malfunction', severity: 'medium', description: '' });
-
+  const [emgForm, setEmgForm] = useState({
+    event_type: 'Lab Instrument Malfunction',
+    severity: 'medium',
+    description: ''
+  });
   const [notification, setNotification] = useState(null);
 
   const showToast = (msg, type = 'success') => {
@@ -55,8 +59,8 @@ export default function PersonnelDashboard() {
   const fetchPersonnelData = async () => {
     try {
       const [profData, emgData] = await Promise.all([
-        getMyPersonnelProfile().catch(() => null),
-        getEmergencies().catch(() => [])
+        getMyPersonnelProfile(),
+        getEmergencies('open')
       ]);
       setProfile(profData);
       setEmergencies(Array.isArray(emgData) ? emgData : []);
@@ -71,7 +75,7 @@ export default function PersonnelDashboard() {
     fetchPersonnelData();
     // Auto-poll emergencies every 15s
     const timer = setInterval(() => {
-      getEmergencies().then(data => {
+      getEmergencies('open').then(data => {
         if (Array.isArray(data)) setEmergencies(data);
       }).catch(console.error);
     }, 15000);
@@ -83,12 +87,12 @@ export default function PersonnelDashboard() {
     if (!statusText.trim()) return;
     setSubmittingStatus(true);
     try {
-      await postWorkStatus({
+      await submitPersonnelWorkStatus({
         status_text: statusText.trim(),
         task_category: taskCategory
       });
       setStatusText('');
-      showToast('Work status update recorded to expedition log!');
+      showToast('Work status update recorded (Offline Buffer Synchronized)!');
       fetchPersonnelData();
     } catch (err) {
       alert(err.response?.data?.detail || 'Failed to update work status');
@@ -100,18 +104,18 @@ export default function PersonnelDashboard() {
   const handleReportEmergency = async (e) => {
     e.preventDefault();
     try {
-      await createEmergency({
-        station_id: user.linked_station_id,
+      await submitEmergency({
+        station_id: user.linked_station_id || 'LOC-BHA',
         event_type: emgForm.event_type,
         severity: emgForm.severity,
         description: emgForm.description
       });
       setShowEmgModal(false);
       setEmgForm({ event_type: 'Lab Instrument Malfunction', severity: 'medium', description: '' });
-      showToast('Emergency SOS dispatched to Station Commander & NCPOR HQ!');
+      showToast('🚨 Emergency report queued for high-priority dispatch!');
       fetchPersonnelData();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to dispatch emergency');
+      alert('Failed to report emergency');
     }
   };
 
@@ -143,19 +147,19 @@ export default function PersonnelDashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center gap-1.5">
+              <span className="px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center gap-1.5">
                 <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
                 Antarctic Expedition Member Portal
               </span>
-              <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                 Active Deployment
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
               {profile?.name || user?.username}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Personnel ID: <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{profile?.id || user?.username}</span> • Official Expedition Roster Record
+            <p className="text-xs sm:text-sm text-slate-500">
+              Personnel ID: <span className="font-mono font-bold text-indigo-600">{profile?.id || user?.username}</span> • Official Expedition Roster Record
             </p>
           </div>
 
@@ -175,56 +179,56 @@ export default function PersonnelDashboard() {
         <div className="lg:col-span-5 space-y-6">
           <div className="glass-panel p-6 rounded-2xl space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <ClipboardList className="w-4 h-4 text-indigo-500" />
                 My Official Profile
               </h3>
-              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-500">
                 Read-Only Record
               </span>
             </div>
 
             {profile ? (
               <div className="space-y-4 text-xs">
-                <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/60 space-y-3">
+                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 space-y-3">
                   <div>
                     <span className="text-slate-400 block text-[11px]">Full Name & Scientific Role</span>
-                    <span className="font-bold text-sm text-slate-900 dark:text-white">{profile.name}</span>
-                    <div className="text-indigo-600 dark:text-indigo-400 font-semibold">{profile.role}</div>
+                    <span className="font-bold text-sm text-slate-900">{profile.name}</span>
+                    <div className="text-indigo-600 font-semibold">{profile.role}</div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
                     <div>
                       <span className="text-slate-400 block text-[11px]">Affiliated Institution</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">{profile.affiliated_institution || 'NCPOR'}</span>
+                      <span className="font-bold text-slate-800">{profile.affiliated_institution || 'NCPOR'}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[11px]">Employment Category</span>
-                      <span className="font-semibold capitalize text-indigo-600 dark:text-indigo-400">
+                      <span className="font-semibold capitalize text-indigo-600">
                         {profile.personnel_category ? profile.personnel_category.replace('_', ' ') : 'Permanent Staff'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
                     <div>
                       <span className="text-slate-400 block text-[11px]">Assigned Station</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{profile.assigned_station}</span>
+                      <span className="font-semibold text-slate-800">{profile.assigned_station}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[11px]">Season Cycle</span>
-                      <span className="font-semibold capitalize text-slate-800 dark:text-slate-200">{profile.season_type}</span>
+                      <span className="font-semibold capitalize text-slate-800">{profile.season_type}</span>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                  <div className="pt-2 border-t border-slate-200/60">
                     <span className="text-slate-400 block text-[11px]">Deployment Dates</span>
-                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="font-mono font-semibold text-slate-800">
                       {profile.deployment_start} → {profile.deployment_end}
                     </span>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
                     <span className="text-slate-400 text-[11px]">Operational Status</span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                       {profile.current_status}
@@ -232,7 +236,7 @@ export default function PersonnelDashboard() {
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-indigo-500/5 text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-indigo-500/5 text-slate-600 text-[11px] leading-relaxed">
                   <span className="font-bold text-indigo-500 block mb-1">Station Commander Note:</span>
                   All personnel deployment records are authenticated directly by NCPOR HQ. Privacy and role-isolation are strictly enforced.
                 </div>
@@ -249,11 +253,11 @@ export default function PersonnelDashboard() {
           {/* Work Status Update Box */}
           <div className="glass-panel p-6 rounded-2xl space-y-5">
             <div>
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-indigo-500" />
                 Work Status & Duty Tracker
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500">
                 Update your current duty status or research task. Updates appear in the Station Commander roster.
               </p>
             </div>
@@ -267,7 +271,7 @@ export default function PersonnelDashboard() {
                     key={preset}
                     type="button"
                     onClick={() => setStatusText(preset)}
-                    className="px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:border-indigo-500 text-slate-700 dark:text-slate-300 transition-colors text-left"
+                    className="px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 bg-slate-50 hover:border-indigo-500 text-slate-700 transition-colors text-left"
                   >
                     {preset}
                   </button>
@@ -279,22 +283,22 @@ export default function PersonnelDashboard() {
             <form onSubmit={handlePostStatus} className="space-y-3 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Current Task / Activity</label>
+                  <label className="text-[11px] font-semibold text-slate-700">Current Task / Activity</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. On generator maintenance duty"
                     value={statusText}
                     onChange={(e) => setStatusText(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Category</label>
+                  <label className="text-[11px] font-semibold text-slate-700">Category</label>
                   <select
                     value={taskCategory}
                     onChange={(e) => setTaskCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
                   >
                     <option value="Station Maintenance">Station Maintenance</option>
                     <option value="Scientific Research">Scientific Research</option>
@@ -316,21 +320,21 @@ export default function PersonnelDashboard() {
             </form>
 
             {/* History of Work Logs */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <div className="space-y-3 pt-4 border-t border-slate-200">
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">My Recent Duty Logs</h4>
               {workLogs.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">No duty status logs recorded yet.</p>
               ) : (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {workLogs.map((log) => (
-                    <div key={log.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs space-y-1">
+                    <div key={log.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 text-xs space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-900 dark:text-white">{log.status_text}</span>
+                        <span className="font-semibold text-slate-900">{log.status_text}</span>
                         <span className="text-[10px] font-mono text-slate-400">
                           {log.logged_at?.substring(0, 16).replace('T', ' ')}
                         </span>
                       </div>
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-600">
                         {log.task_category}
                       </span>
                     </div>
@@ -342,7 +346,7 @@ export default function PersonnelDashboard() {
 
           {/* Station Connected Alerts Box */}
           <div className="glass-panel p-6 rounded-2xl space-y-3">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-rose-500" />
               Active Station Alerts & Warnings
             </h3>
@@ -350,14 +354,14 @@ export default function PersonnelDashboard() {
               <p className="text-xs text-slate-400">No active station emergency alerts.</p>
             ) : (
               emergencies.map((emg) => (
-                <div key={emg.id} className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/20 text-xs space-y-1">
+                <div key={emg.id} className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/5 text-xs space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 dark:text-white">{emg.event_type}</span>
+                    <span className="font-bold text-slate-900">{emg.event_type}</span>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500 text-white">
                       {emg.severity}
                     </span>
                   </div>
-                  <p className="text-slate-600 dark:text-slate-300">{emg.description}</p>
+                  <p className="text-slate-600">{emg.description}</p>
                 </div>
               ))
             )}
@@ -370,30 +374,30 @@ export default function PersonnelDashboard() {
       {/* MODAL: REPORT STATION EMERGENCY */}
       {showEmgModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass-panel p-6 max-w-md w-full rounded-2xl space-y-4 bg-white dark:bg-[#111827]">
+          <div className="glass-panel p-6 max-w-md w-full rounded-2xl space-y-4 bg-white">
             <h3 className="text-base font-bold text-rose-500 flex items-center gap-2">
               <ShieldAlert className="w-5 h-5" /> Dispatch Emergency Incident
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500">
               Immediately alerts the Bharati Station Commander and NCPOR Operations Headquarters.
             </p>
             <form onSubmit={handleReportEmergency} className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Incident Event Type</label>
+                <label className="text-xs font-semibold text-slate-700">Incident Event Type</label>
                 <input
                   required
                   type="text"
                   value={emgForm.event_type}
                   onChange={(e) => setEmgForm({ ...emgForm, event_type: e.target.value })}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Severity</label>
+                <label className="text-xs font-semibold text-slate-700">Severity</label>
                 <select
                   value={emgForm.severity}
                   onChange={(e) => setEmgForm({ ...emgForm, severity: e.target.value })}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                 >
                   <option value="low">Low - Minor Equipment Notice</option>
                   <option value="medium">Medium - Operational Warning</option>
@@ -402,14 +406,14 @@ export default function PersonnelDashboard() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Incident Details</label>
+                <label className="text-xs font-semibold text-slate-700">Incident Details</label>
                 <textarea
                   required
                   rows={3}
                   value={emgForm.description}
                   onChange={(e) => setEmgForm({ ...emgForm, description: e.target.value })}
                   placeholder="Describe incident, location inside station, and assistance needed..."
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900"
                 />
               </div>
 
@@ -417,7 +421,7 @@ export default function PersonnelDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowEmgModal(false)}
-                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
                 >
                   Cancel
                 </button>

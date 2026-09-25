@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getEmergencies, createEmergency, updateEmergency } from '../services/api';
+import { getEmergencies, updateEmergency } from '../services/api';
+import { useConnectivity } from '../context/ConnectivityContext';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import {
@@ -11,10 +12,12 @@ import {
   Send,
   X,
   Radio,
-  RefreshCw
+  RefreshCw,
+  Database
 } from 'lucide-react';
 
 export default function EmergencyResponse() {
+  const { submitEmergency, isOnline } = useConnectivity();
   const [emergencies, setEmergencies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,7 +45,7 @@ export default function EmergencyResponse() {
     } catch (err) {
       console.error('EmergencyResponse fetchEmergencies error:', err);
       setEmergencies([]);
-      setError("Unable to reach PolarLogix emergency incident server on port 8008. Please check backend connection.");
+      setError("Unable to reach emergency server. Operating from local IndexedDB cache.");
     } finally {
       setLoading(false);
     }
@@ -51,7 +54,7 @@ export default function EmergencyResponse() {
   const handleReportEmergency = async (e) => {
     e.preventDefault();
     try {
-      await createEmergency(newEmergency);
+      await submitEmergency(newEmergency);
       setShowReportModal(false);
       setNewEmergency({
         station_id: 'LOC-BHA',
@@ -95,7 +98,7 @@ export default function EmergencyResponse() {
       <div className="glass-panel p-6 bg-gradient-to-r from-rose-500/15 via-orange-500/5 to-transparent border-l-4 border-l-rose-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Emergency Response Coordination Center
             </h1>
             <span className="flex h-3 w-3 relative">
@@ -103,7 +106,7 @@ export default function EmergencyResponse() {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
             </span>
           </div>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Station distress alerts, power grid failures, severe weather hazards & medical dispatch logs
           </p>
         </div>
@@ -170,7 +173,7 @@ export default function EmergencyResponse() {
       {loading ? (
         <LoadingSkeleton type="cards" count={3} />
       ) : (Array.isArray(emergencies) ? emergencies : []).length === 0 && !error ? (
-        <div className="glass-panel p-12 text-center text-slate-500 dark:text-slate-400">
+        <div className="glass-panel p-12 text-center text-slate-500">
           No emergency incidents recorded matching filter.
         </div>
       ) : (
@@ -191,6 +194,12 @@ export default function EmergencyResponse() {
                     <span className="font-mono text-xs font-bold text-slate-400">{emg?.id}</span>
                     <StatusBadge status={emg?.severity} />
                     <StatusBadge status={emg?.status} />
+                    {(emg?.is_pending_sync || emg?.id?.startsWith('LOCAL-')) && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-600 border border-amber-500/30 animate-pulse flex items-center gap-1">
+                        <Database className="w-3 h-3" />
+                        PENDING SYNC (CRITICAL)
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-3 text-xs">
                     <span className="text-slate-400 flex items-center">
@@ -211,21 +220,21 @@ export default function EmergencyResponse() {
 
                 {/* Incident Title & Description */}
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
                     <Radio className="w-4 h-4 text-rose-500" />
                     <span>{emg?.event_type || 'Incident'} — {emg?.station?.name || emg?.station_id || 'Base'}</span>
                   </h3>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+                  <p className="text-sm text-slate-700 mt-1">
                     {emg?.description}
                   </p>
                 </div>
 
                 {/* Response Log History Box */}
-                <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                <div className="p-4 rounded-xl bg-slate-100 border border-slate-200 space-y-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                     Response Dispatch Timeline Log:
                   </span>
-                  <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+                  <pre className="text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed">
                     {emg?.response_log || 'No response log entries.'}
                   </pre>
                 </div>
@@ -239,7 +248,7 @@ export default function EmergencyResponse() {
                       value={logInputMap[emg?.id] || ''}
                       onChange={(e) => setLogInputMap({ ...logInputMap, [emg?.id]: e.target.value })}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddLogEntry(emg?.id)}
-                      className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
                     <button
                       onClick={() => handleAddLogEntry(emg?.id)}
@@ -260,10 +269,10 @@ export default function EmergencyResponse() {
       {/* Report New Emergency Modal */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass-panel max-w-md w-full p-6 space-y-4 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800 rounded-2xl shadow-2xl relative">
+          <div className="glass-panel max-w-md w-full p-6 space-y-4 bg-white border-slate-300 rounded-2xl shadow-2xl relative">
             <button
               onClick={() => setShowReportModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
             >
               <X className="w-5 h-5" />
             </button>
@@ -275,11 +284,11 @@ export default function EmergencyResponse() {
 
             <form onSubmit={handleReportEmergency} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Station Location *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Station Location *</label>
                 <select
                   value={newEmergency.station_id}
                   onChange={(e) => setNewEmergency({ ...newEmergency, station_id: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                 >
                   <option value="LOC-BHA">Bharati Station</option>
                   <option value="LOC-MAI">Maitri Station</option>
@@ -289,11 +298,11 @@ export default function EmergencyResponse() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Incident Type</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Incident Type</label>
                   <select
                     value={newEmergency.event_type}
                     onChange={(e) => setNewEmergency({ ...newEmergency, event_type: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                   >
                     <option value="Generator Failure">Generator Failure</option>
                     <option value="Blizzard Damage">Blizzard Damage</option>
@@ -304,11 +313,11 @@ export default function EmergencyResponse() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Severity Level</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Severity Level</label>
                   <select
                     value={newEmergency.severity}
                     onChange={(e) => setNewEmergency({ ...newEmergency, severity: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                   >
                     <option value="critical">CRITICAL (Life / Power Risk)</option>
                     <option value="high">HIGH (Urgent Repair)</option>
@@ -319,14 +328,14 @@ export default function EmergencyResponse() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Incident Description *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Incident Description *</label>
                 <textarea
                   required
                   rows={3}
                   placeholder="Detail the emergency situation, affected equipment, or medical status..."
                   value={newEmergency.description}
                   onChange={(e) => setNewEmergency({ ...newEmergency, description: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                 />
               </div>
 

@@ -132,6 +132,12 @@ class WeatherLogCreate(BaseModel):
     temperature_c: Optional[float] = None
     wind_speed_knots: Optional[float] = None
 
+class WeatherLogUpdate(BaseModel):
+    condition: Optional[str] = None
+    note: Optional[str] = None
+    temperature_c: Optional[float] = None
+    wind_speed_knots: Optional[float] = None
+
 class WeatherLogResponse(BaseModel):
     id: str
     shipment_id: str
@@ -249,6 +255,17 @@ class PersonnelResponse(PersonnelCreate):
     class Config:
         from_attributes = True
 
+class PersonnelUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    affiliated_institution: Optional[str] = None
+    personnel_category: Optional[str] = None
+    assigned_station: Optional[str] = None
+    season_type: Optional[str] = None
+    deployment_start: Optional[str] = None
+    deployment_end: Optional[str] = None
+    current_status: Optional[str] = None
+
 # ================= INVENTORY =================
 class InventoryCreate(BaseModel):
     location_id: str
@@ -257,6 +274,13 @@ class InventoryCreate(BaseModel):
     quantity: float
     unit: str
     minimum_threshold: float
+
+class InventoryUpdate(BaseModel):
+    quantity: Optional[float] = None
+    minimum_threshold: Optional[float] = None
+    item_name: Optional[str] = None
+    category: Optional[str] = None
+    unit: Optional[str] = None
 
 class InventoryResponse(InventoryCreate):
     id: str
@@ -274,6 +298,10 @@ class EmergencyCreate(BaseModel):
     description: str
 
 class EmergencyUpdate(BaseModel):
+    event_type: Optional[str] = None
+    severity: Optional[str] = None
+    description: Optional[str] = None
+    station_id: Optional[str] = None
     status: Optional[str] = None
     response_log: Optional[str] = None
 

@@ -212,3 +212,101 @@ def test_shipment_officer_operations():
         headers=headers
     )
     assert alt_res.status_code == 200
+
+def test_inventory_rbac_edit_and_delete():
+    """Verify inventory item edit and delete RBAC and IDOR restrictions."""
+    admin_token = get_token("admin.ncpor", "Demo@Admin2026")
+    bha_commander_token = get_token("commander.bharati", "Demo@Bharati2026")
+    personnel_token = get_token("PER-001", "Demo@Personnel2026")
+
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    bha_headers = {"Authorization": f"Bearer {bha_commander_token}"}
+    per_headers = {"Authorization": f"Bearer {personnel_token}"}
+
+    # 1. Super admin creates an item at Maitri (LOC-MAI)
+    create_res = client.post(
+        "/api/inventory/LOC-MAI",
+        json={
+            "location_id": "LOC-MAI",
+            "item_name": "Test RBAC Generator Part",
+            "category": "spare_parts",
+            "quantity": 100.0,
+            "unit": "units",
+            "minimum_threshold": 20.0
+        },
+        headers=admin_headers
+    )
+    assert create_res.status_code == 201
+    item_id = create_res.json()["id"]
+
+    # 2. Bharati Station Commander attempts to PATCH Maitri item -> 403 Forbidden
+    patch_fail = client.patch(
+        f"/api/inventory/{item_id}",
+        json={"quantity": 15.0},
+        headers=bha_headers
+    )
+    assert patch_fail.status_code == 403
+
+    # 3. Personnel attempts to PATCH inventory -> 403 Forbidden
+    patch_per_fail = client.patch(
+        f"/api/inventory/{item_id}",
+        json={"quantity": 15.0},
+        headers=per_headers
+    )
+    assert patch_per_fail.status_code == 403
+
+    # 4. Super Admin PATCHes Maitri item to below threshold -> 200 OK & quantity updated
+    patch_success = client.patch(
+        f"/api/inventory/{item_id}",
+        json={"quantity": 10.0, "minimum_threshold": 25.0},
+        headers=admin_headers
+    )
+    assert patch_success.status_code == 200
+    assert patch_success.json()["quantity"] == 10.0
+    assert patch_success.json()["minimum_threshold"] == 25.0
+
+    # 5. Bharati Commander creates item at Bharati (LOC-BHA)
+    bha_create = client.post(
+        "/api/inventory/LOC-BHA",
+        json={
+            "location_id": "LOC-BHA",
+            "item_name": "Bharati Filter Core",
+            "category": "spare_parts",
+            "quantity": 50.0,
+            "unit": "units",
+            "minimum_threshold": 10.0
+        },
+        headers=bha_headers
+    )
+    assert bha_create.status_code == 201
+    bha_item_id = bha_create.json()["id"]
+
+    # 6. Bharati Commander PATCHes their own Bharati item -> 200 OK
+    bha_patch = client.patch(
+        f"/api/inventory/{bha_item_id}",
+        json={"quantity": 8.0},
+        headers=bha_headers
+    )
+    assert bha_patch.status_code == 200
+    assert bha_patch.json()["quantity"] == 8.0
+
+    # 7. Bharati Commander attempts to DELETE Maitri item -> 403 Forbidden
+    del_fail = client.delete(
+        f"/api/inventory/{item_id}",
+        headers=bha_headers
+    )
+    assert del_fail.status_code == 403
+
+    # 8. Bharati Commander DELETES their own Bharati item -> 200 OK
+    del_bha_success = client.delete(
+        f"/api/inventory/{bha_item_id}",
+        headers=bha_headers
+    )
+    assert del_bha_success.status_code == 200
+
+    # 9. Super Admin DELETES Maitri item -> 200 OK
+    del_admin_success = client.delete(
+        f"/api/inventory/{item_id}",
+        headers=admin_headers
+    )
+    assert del_admin_success.status_code == 200

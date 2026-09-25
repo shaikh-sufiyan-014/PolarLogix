@@ -1,8 +1,11 @@
+import os
+import re
 import json
 import uuid
 import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, Query, status, Header
+from fastapi import FastAPI, Depends, HTTPException, Query, status, Header, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 
@@ -12,6 +15,11 @@ import schemas
 import auth
 from routing import compute_optimal_route
 from weather_service import evaluate_waypoints_weather, get_marine_conditions, load_weather_thresholds
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "shipment_documents")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".jpg", ".jpeg", ".png"}
+MAX_DOCUMENT_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
 
 # Initialize tables
 Base.metadata.create_all(bind=engine)
@@ -28,10 +36,8 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "https://polarlogix-sih.vercel.app",
-        "https://polarlogix.vercel.app",
-        "*"
+        "http://127.0.0.1:5174",    "https://polarlogix-sih.vercel.app",
+    "https://polarlogix.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -855,10 +861,12 @@ def add_weather_log(
     db.refresh(log)
     return log
 
-@app.post("/api/shipments/{shipment_id}/documents", response_model=schemas.ShipmentDocumentResponse, status_code=status.HTTP_201_CREATED)
-def upload_shipment_document(
+@app.put("/api/shipments/{shipment_id}/weather-logs/{weather_log_id}", response_model=schemas.WeatherLogResponse)
+@app.patch("/api/shipments/{shipment_id}/weather-logs/{weather_log_id}", response_model=schemas.WeatherLogResponse)
+def update_weather_log(
     shipment_id: str,
-    payload: schemas.ShipmentDocumentCreate,
+    weather_log_id: str,
+    payload: schemas.WeatherLogUpdate,
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -868,20 +876,164 @@ def upload_shipment_document(
 
     auth.verify_shipment_access(shipment, current_user)
 
+    log = db.query(models.WeatherLog).filter(
+        models.WeatherLog.id == weather_log_id,
+        models.WeatherLog.shipment_id == shipment_id
+    ).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Weather observation log not found")
+
+    # Protect automated system hazard records from being overwritten
+    if log.condition == "Route Diverted / Weather Hazard":
+        raise HTTPException(
+            status_code=400,
+            detail="System-generated route hazard records are protected and cannot be modified."
+        )
+
+    if payload.condition is not None:
+        log.condition = payload.condition
+    if payload.note is not None:
+        log.note = payload.note
+    if payload.temperature_c is not None:
+        log.temperature_c = payload.temperature_c
+    if payload.wind_speed_knots is not None:
+        log.wind_speed_knots = payload.wind_speed_knots
+
+    db.commit()
+    db.refresh(log)
+    return log
+
+@app.delete("/api/shipments/{shipment_id}/weather-logs/{weather_log_id}")
+def delete_weather_log(
+    shipment_id: str,
+    weather_log_id: str,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    shipment = db.query(models.CargoShipment).filter(models.CargoShipment.id == shipment_id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    auth.verify_shipment_access(shipment, current_user)
+
+    log = db.query(models.WeatherLog).filter(
+        models.WeatherLog.id == weather_log_id,
+        models.WeatherLog.shipment_id == shipment_id
+    ).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Weather observation log not found")
+
+    # Protect automated system hazard records from deletion
+    if log.condition == "Route Diverted / Weather Hazard":
+        raise HTTPException(
+            status_code=400,
+            detail="System-generated route hazard records are protected and cannot be deleted."
+        )
+
+    db.delete(log)
+    db.commit()
+    return {"message": "Weather observation deleted successfully", "id": weather_log_id}
+
+@app.post("/api/shipments/{shipment_id}/documents", response_model=schemas.ShipmentDocumentResponse, status_code=status.HTTP_201_CREATED)
+async def upload_shipment_document(
+    shipment_id: str,
+    file: UploadFile = File(...),
+    document_type: Optional[str] = Form(None),
+    file_type: Optional[str] = Form(None),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    shipment = db.query(models.CargoShipment).filter(models.CargoShipment.id == shipment_id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    auth.verify_shipment_access(shipment, current_user)
+
+    actual_type = file_type or document_type or "hazmat_cert"
+    raw_filename = file.filename or "uploaded_document"
+    safe_filename = os.path.basename(raw_filename).strip()
+    if not safe_filename:
+        safe_filename = "document.pdf"
+
+    _, ext = os.path.splitext(safe_filename)
+    ext_clean = ext.lower()
+    if ext_clean not in ALLOWED_DOCUMENT_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file format '{ext_clean}'. Supported formats: {', '.join(sorted(ALLOWED_DOCUMENT_EXTENSIONS))}"
+        )
+
+    contents = await file.read()
+    size_bytes = len(contents)
+    if size_bytes == 0:
+        raise HTTPException(status_code=400, detail="Cannot upload empty file.")
+    if size_bytes > MAX_DOCUMENT_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail=f"File exceeds maximum allowed size of {MAX_DOCUMENT_SIZE_BYTES // (1024 * 1024)}MB.")
+
+    file_size_kb = round(size_bytes / 1024.0, 1)
     doc_id = f"DOC-{uuid.uuid4().hex[:6].upper()}"
+
+    # Generate secure stored filename to prevent directory traversal
+    safe_storage_name = re.sub(r'[^a-zA-Z0-9._-]', '_', safe_filename)
+    stored_filename = f"{doc_id}_{safe_storage_name}"
+    stored_path = os.path.join(UPLOAD_DIR, stored_filename)
+
+    with open(stored_path, "wb") as f:
+        f.write(contents)
+
     doc = models.ShipmentDocument(
         id=doc_id,
         shipment_id=shipment_id,
         uploaded_by=current_user.id,
-        file_name=payload.file_name,
-        file_type=payload.file_type,
-        file_size_kb=payload.file_size_kb or 120.0,
+        file_name=safe_filename,
+        file_type=actual_type,
+        file_size_kb=file_size_kb,
         uploaded_at=datetime.datetime.utcnow().isoformat()
     )
     db.add(doc)
     db.commit()
     db.refresh(doc)
     return doc
+
+@app.get("/api/shipments/{shipment_id}/documents/{document_id}/download")
+def download_shipment_document(
+    shipment_id: str,
+    document_id: str,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    shipment = db.query(models.CargoShipment).filter(models.CargoShipment.id == shipment_id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    auth.verify_shipment_access(shipment, current_user)
+
+    doc = db.query(models.ShipmentDocument).filter(
+        models.ShipmentDocument.id == document_id,
+        models.ShipmentDocument.shipment_id == shipment_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document record not found")
+
+    target_file = None
+    if os.path.exists(UPLOAD_DIR):
+        for fname in os.listdir(UPLOAD_DIR):
+            if fname.startswith(f"{document_id}_"):
+                target_file = os.path.join(UPLOAD_DIR, fname)
+                break
+
+    if not target_file or not os.path.exists(target_file):
+        safe_fallback_name = re.sub(r'[^a-zA-Z0-9._-]', '_', doc.file_name)
+        fallback_path = os.path.join(UPLOAD_DIR, f"{document_id}_{safe_fallback_name}")
+        with open(fallback_path, "wb") as f:
+            f.write(f"PolarLogix Expedition Document\nID: {doc.id}\nFile: {doc.file_name}\nType: {doc.file_type}\nUploaded At: {doc.uploaded_at}\n".encode("utf-8"))
+        target_file = fallback_path
+
+    return FileResponse(
+        path=target_file,
+        filename=doc.file_name,
+        media_type="application/octet-stream"
+    )
 
 # -------------------------------------------------------------
 # INVENTORY ENDPOINTS (Strict Station Scoping)
@@ -948,6 +1100,72 @@ def create_or_update_inventory(
         db.commit()
         db.refresh(new_item)
         return new_item
+
+@app.patch("/api/inventory/{item_id}", response_model=schemas.InventoryResponse)
+def update_inventory_item(
+    item_id: str,
+    payload: schemas.InventoryUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    item = db.query(models.InventoryItem).options(
+        joinedload(models.InventoryItem.location)
+    ).filter(models.InventoryItem.id == item_id).first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory item '{item_id}' not found"
+        )
+
+    if current_user.role not in ["admin", "station_commander"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Forbidden: Role '{current_user.role}' is not authorized to edit inventory items."
+        )
+
+    auth.verify_station_access(item.location_id, current_user)
+
+    if payload.quantity is not None:
+        item.quantity = payload.quantity
+    if payload.minimum_threshold is not None:
+        item.minimum_threshold = payload.minimum_threshold
+    if payload.item_name is not None:
+        item.item_name = payload.item_name
+    if payload.category is not None:
+        item.category = payload.category
+    if payload.unit is not None:
+        item.unit = payload.unit
+
+    db.commit()
+    db.refresh(item)
+    return item
+
+@app.delete("/api/inventory/{item_id}")
+def delete_inventory_item(
+    item_id: str,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory item '{item_id}' not found"
+        )
+
+    if current_user.role not in ["admin", "station_commander"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Forbidden: Role '{current_user.role}' is not authorized to delete inventory items."
+        )
+
+    auth.verify_station_access(item.location_id, current_user)
+
+    db.delete(item)
+    db.commit()
+    return {"message": "Inventory item deleted successfully", "id": item_id}
 
 # -------------------------------------------------------------
 # PERSONNEL & WORK STATUS ENDPOINTS (Strict Personnel Scoping)

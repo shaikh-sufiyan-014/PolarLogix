@@ -14,9 +14,9 @@ const createCustomIcon = (color, label, badge = '') => {
   return L.divIcon({
     html: `<div class="relative flex flex-col items-center justify-center">
       ${svg}
-      <div class="absolute -bottom-5 flex items-center space-x-1 bg-white/95 dark:bg-slate-900/95 px-1.5 py-0.5 rounded shadow-md border border-slate-300 dark:border-slate-700 whitespace-nowrap">
-        ${badge ? `<span class="text-[9px] font-extrabold uppercase px-1 rounded bg-sky-500/20 text-sky-600 dark:text-sky-400">${badge}</span>` : ''}
-        <span class="text-[10px] font-bold text-slate-800 dark:text-white">${label}</span>
+      <div class="absolute -bottom-5 flex items-center space-x-1 bg-white/95 px-1.5 py-0.5 rounded shadow-md border border-slate-300 whitespace-nowrap">
+        ${badge ? `<span class="text-[9px] font-extrabold uppercase px-1 rounded bg-sky-500/20 text-sky-600">${badge}</span>` : ''}
+        <span class="text-[10px] font-bold text-slate-800">${label}</span>
       </div>
     </div>`,
     className: 'custom-map-icon',
@@ -240,22 +240,22 @@ export default function ExpeditionMap({
   }
 
   return (
-    <div className="relative w-full h-[490px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl">
+    <div className="relative w-full h-[490px] rounded-2xl overflow-hidden border border-slate-200 shadow-xl">
       
       {/* Map Header & Filter Badge */}
-      <div className="absolute top-3 left-3 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-900 dark:text-white shadow-lg flex items-center space-x-2">
+      <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-900 shadow-lg flex items-center space-x-2">
         <Globe className="w-4 h-4 text-sky-500 animate-spin-slow" />
         <span className="capitalize">
           {programmeFilter === 'all' ? 'All 4 NCPOR Field Stations' : programmeFilter.replace('_', ' ')}
         </span>
-        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400">
+        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-600">
           {displayedLocations.length} Active Nodes
         </span>
       </div>
 
       {/* Legend & Status Overlay */}
-      <div className="absolute top-3 right-3 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 p-3 rounded-xl text-xs space-y-2 shadow-xl max-w-xs">
-        <div className="font-bold text-slate-900 dark:text-white flex items-center justify-between">
+      <div className="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur-md border border-slate-200 p-3 rounded-xl text-xs space-y-2 shadow-xl max-w-xs">
+        <div className="font-bold text-slate-900 flex items-center justify-between">
           <span>Polar Route Network</span>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-500 font-semibold">
             NCPOR 2026
@@ -265,20 +265,20 @@ export default function ExpeditionMap({
         <div className="space-y-1 text-[11px]">
           <div className="flex items-center space-x-2">
             <span className="w-3 h-3 rounded-full bg-cyan-500 flex-shrink-0"></span>
-            <span className="text-slate-600 dark:text-slate-300">Antarctic (Maitri & Bharati)</span>
+            <span className="text-slate-600">Antarctic (Maitri & Bharati)</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="w-3 h-3 rounded-full bg-purple-500 flex-shrink-0"></span>
-            <span className="text-slate-600 dark:text-slate-300">Arctic (Himadri, Svalbard)</span>
+            <span className="text-slate-600">Arctic (Himadri, Svalbard)</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="w-3 h-3 rounded-full bg-orange-500 flex-shrink-0"></span>
-            <span className="text-slate-600 dark:text-slate-300">Himalayan (Himansh Glacier Base)</span>
+            <span className="text-slate-600">Himalayan (Himansh Glacier Base)</span>
           </div>
         </div>
 
         {weatherAdvisory && (
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1">
+          <div className="pt-2 border-t border-slate-200 space-y-1">
             <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
               Marine Weather Status
             </div>

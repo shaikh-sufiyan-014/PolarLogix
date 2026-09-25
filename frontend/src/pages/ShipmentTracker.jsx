@@ -92,10 +92,10 @@ export default function ShipmentTracker() {
       {/* Header Banner */}
       <div className="glass-panel p-6 bg-gradient-to-r from-cyan-500/10 via-sky-500/5 to-transparent flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Expedition Cargo Courier Tracker
           </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Real-time status monitoring, box labelling & multi-step leg progress across transport hubs
           </p>
         </div>
@@ -134,7 +134,7 @@ export default function ShipmentTracker() {
             placeholder="Search cargo, ID, or category..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
           />
         </div>
 
@@ -144,7 +144,7 @@ export default function ShipmentTracker() {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+            className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
           >
             <option value="">All Cargo Statuses</option>
             <option value="planned">Planned</option>
@@ -157,7 +157,7 @@ export default function ShipmentTracker() {
           <select
             value={selectedDestination}
             onChange={(e) => setSelectedDestination(e.target.value)}
-            className="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+            className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
           >
             <option value="">All Destinations</option>
             <option value="LOC-BHA">Bharati Station</option>
@@ -172,7 +172,7 @@ export default function ShipmentTracker() {
       {loading ? (
         <LoadingSkeleton type="cards" count={6} />
       ) : filteredShipments.length === 0 && !error ? (
-        <div className="glass-panel p-12 text-center text-slate-500 dark:text-slate-400">
+        <div className="glass-panel p-12 text-center text-slate-500">
           No shipments found matching specified query filters.
         </div>
       ) : (
@@ -198,10 +198,10 @@ export default function ShipmentTracker() {
 
                 {/* Main Cargo Info */}
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-sky-400 transition-colors">
+                  <h3 className="font-bold text-sm text-slate-900 group-hover:text-sky-400 transition-colors">
                     {shp?.description}
                   </h3>
-                  <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <div className="flex items-center space-x-2 text-xs text-slate-500 mt-1">
                     <span className="capitalize">{shp?.category?.replace('_', ' ') || 'General'}</span>
                     <span>•</span>
                     <span className="font-mono">{shp?.weight_kg ?? 0} kg</span>
@@ -214,22 +214,22 @@ export default function ShipmentTracker() {
                 </div>
 
                 {/* Package Label info */}
-                <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-xs flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Current Position:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                <div className="p-2.5 rounded-lg bg-slate-100 text-xs flex items-center justify-between">
+                  <span className="text-slate-500">Current Position:</span>
+                  <span className="font-semibold text-slate-800">
                     {shp?.current_location?.name || shp?.current_location_id || 'Unknown'}
                   </span>
                 </div>
 
                 {/* Progress Stepper Line */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-500">
                     <span>{shp.origin?.name || 'Origin'}</span>
                     <span>{shp.destination?.name || 'Destination'}</span>
                   </div>
 
                   {/* Multi-step bar */}
-                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden flex">
+                  <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden flex">
                     <div
                       className={`h-full transition-all duration-500 ${
                         shp.status === 'delivered'
@@ -247,7 +247,7 @@ export default function ShipmentTracker() {
                 </div>
 
                 {/* DEMO FEATURE: Advance to Next Leg Button */}
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
                   {!isDelivered ? (
                     <button
                       onClick={(e) => handleAdvanceLeg(e, shp.id)}
@@ -277,12 +277,12 @@ export default function ShipmentTracker() {
       {/* Shipment Detail Modal */}
       {activeModalShipment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass-panel max-w-2xl w-full p-6 space-y-5 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800 rounded-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="glass-panel max-w-2xl w-full p-6 space-y-5 bg-white border-slate-300 rounded-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
             
             {/* Close Button */}
             <button
               onClick={() => setActiveModalShipment(null)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-lg"
             >
               <X className="w-5 h-5" />
             </button>
@@ -297,29 +297,29 @@ export default function ShipmentTracker() {
                   <span className="font-mono font-bold text-sky-500 text-sm">{activeModalShipment.id}</span>
                   <StatusBadge status={activeModalShipment.status} />
                 </div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                <h2 className="text-lg font-bold text-slate-900 mt-0.5">
                   {activeModalShipment.description}
                 </h2>
               </div>
             </div>
 
             {/* Quick Details Table */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-slate-50 text-xs">
               <div>
                 <span className="text-slate-400 block">Category:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
+                <span className="font-semibold text-slate-800 capitalize">
                   {activeModalShipment.category?.replace('_', ' ') || 'General'}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block">Weight:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                <span className="font-semibold text-slate-800 font-mono">
                   {activeModalShipment.weight_kg ?? 0} kg
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block">Box Label:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                <span className="font-semibold text-slate-800">
                   {activeModalShipment.box_label || 'N/A'}
                 </span>
               </div>
@@ -336,7 +336,7 @@ export default function ShipmentTracker() {
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-bold text-xs text-sky-400">Live Logistics Simulation Control</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Advance cargo through computed transport legs in real time</p>
+                  <p className="text-[11px] text-slate-500">Advance cargo through computed transport legs in real time</p>
                 </div>
                 {activeModalShipment.status !== 'delivered' && (
                   <button
@@ -352,7 +352,7 @@ export default function ShipmentTracker() {
 
             {/* Interactive Status Override */}
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block text-xs font-semibold text-slate-700">
                 Manual Status Override:
               </label>
               <div className="flex flex-wrap gap-2">
@@ -363,7 +363,7 @@ export default function ShipmentTracker() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       activeModalShipment.status === st
                         ? 'bg-sky-500 text-white font-bold shadow'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
                     {st.replace('_', ' ').toUpperCase()}
